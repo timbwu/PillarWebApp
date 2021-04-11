@@ -9,10 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
         integrity="sha512-iBBXm8fW90+nuLcSKlbmrPcLa0OT92xO1BIsZ+ywDWZCvqsWgccV3gFoRBv0z+8dLJgyAHIhR35VZc2oM/gI1w=="
         crossorigin="anonymous" />
-    <link rel="stylesheet" href="/frontend/css/admin.css">
 </head>
 
-<body>
+<body onload="getRequestCount()">
     <div class="container-fluid">
         <div class="row mb-5">
             <h1 class="text-center mt-2">Admin Panel</h1>
@@ -27,7 +26,7 @@
                             <h4>GET</h4>
                         </div>
                         <div class="text-info text-center mt-2">
-                            <h1>234</h1>
+                            <h1 id="gets"></h1>
                         </div>
                     </div>
                 </div>
@@ -39,7 +38,7 @@
                             <h4>POST</h4>
                         </div>
                         <div class="text-success text-center mt-2">
-                            <h1>9332</h1>
+                            <h1 id="posts"></h1>
                         </div>
                     </div>
                 </div>
@@ -51,7 +50,7 @@
                             <h4>PUT</h4>
                         </div>
                         <div class="text-danger text-center mt-2">
-                            <h1>346</h1>
+                            <h1 id="puts"></h1>
                         </div>
                     </div>
                 </div>
@@ -63,7 +62,7 @@
                             <h4>DELETE</h4>
                         </div>
                         <div class="text-warning text-center mt-2">
-                            <h1>346</h1>
+                            <h1 id="deletes"></h1>
                         </div>
                     </div>
                 </div>
@@ -78,6 +77,30 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
         crossorigin="anonymous"></script>
+    <script type="text/javascript">
+        let gets = document.getElementById("gets")
+        let posts = document.getElementById("posts")
+        let puts = document.getElementById("puts")
+        let deletes = document.getElementById("deletes")
+        function getRequestCount() {
+            const xttp = new XMLHttpRequest();
+            xttp.open("POST", "https://pillar.timbwu.com/api/v1/admin?apikey=SuperSecretKey", true)
+            // xttp.open("POST", "http://localhost:3000/api/v1/admin?apikey=SuperSecretKey", true)
+            xttp.responseType = "json";
+            xttp.onload = function () {
+                if (xttp.readyState === xttp.DONE && xttp.status === 200) {
+                    let result = xttp.response
+                    gets.innerText = result[0].gets
+                    posts.innerText = result[0].posts
+                    puts.innerText = result[0].puts
+                    deletes.innerText = result[0].deletes
+                } else {
+                    alert(xttp.response)
+                }
+            }
+            xttp.send()
+        }
+    </script>
 </body>
 
 </html>

@@ -3,15 +3,16 @@ const mysql = require('mysql');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const PORT = process.env.PORT || 3000;
-const endPointRoot = "/API/v1"
+const endPointRoot = "/api/v1"
+
 const app = express();
 
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
     port: '3306',
-    password: '',
-    database: 'local_isa'
+    password: '123456',
+    database: 'dongle'
 })
 
 db.connect(err => {
@@ -30,7 +31,25 @@ db.promise = (sql) => {
 
 // Middleware
 const RequestLogger = (req, res, next) => {
-    console.log(`Logged ${req.url} ${req.method} -- ${new Date()}`)
+    res.on("finish", () => {
+        // console.log(`Logged ${req.url} ${req.method} -- ${new Date()}`)
+        if (req.url.includes(endPointRoot)) {
+            switch (req.method) {
+                case 'GET':
+                    db.query("UPDATE requests SET gets = gets + 1", (err, result) => {
+                        if (err) throw err;
+                    })
+                    break;
+                case 'POST':
+                    db.query("UPDATE requests SET posts = posts + 1", (err, result) => {
+                        if (err) throw err;
+                    })
+                    break;
+                default:
+                    console.log("none")
+            }
+        }
+    })
     next();
 }
 
@@ -48,52 +67,39 @@ app.use('/build/', express.static(path.join(__dirname, '../node_modules/three/bu
 app.use('/jsm/', express.static(path.join(__dirname, '../node_modules/three/examples/jsm')))
 app.use('/dat.gui/', express.static(path.join(__dirname, '../node_modules/dat.gui')))
 
-// 3 POST
-// 2 DELETE
-// 2 PUT
-// 1 GET
-
-app.get("/color", (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'))
+app.get(endPointRoot + "/admin", (req, res) => {
+    db.promise("SELECT * FROM apikey WHERE apikey1='" + req.query.apikey + "'")
+        .then((result) => {
+            if (result.length > 0) {
+                res.sendFile(path.join(__dirname, '../frontend/admin.html'))
+            } else {
+                throw '401 Wrong api key!'
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.status(401).send()
+        })
 })
 
-app.get("/shape", (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'))
+app.post(endPointRoot + "/admin", (req, res) => {
+    db.promise("SELECT * FROM apikey WHERE apikey1='" + req.query.apikey + "'")
+        .then((result) => {
+            if (result.length > 0) {
+                const sql = "SELECT * FROM requests"
+                db.query(sql, (err, result) => {
+                    if (err) throw err;
+                    res.status(200).send(result)
+                })
+            } else {
+                throw '401 Wrong api key!'
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.status(401).send()
+        })
 })
 
-app.get("/gallery", (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'))
-})
-
-app.get("/admin.html", (req, res) => {
-    // Create pin table
-    const sql = "CREATE TABLE IF NOT EXISTS pin (id int AUTO_INCREMENT PRIMARY KEY, type int, content TEXT CHARSET utf8mb4, lat float, lon float) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci";
-    db.query(sql, (err, result) => {
-        if (err) throw err;
-    })
-
-    // Create requests table
-    const sql2 = "CREATE TABLE IF NOT EXISTS requests (gets int, posts int, puts int, deletes int)";
-    db.query(sql2, (err, result) => {
-        if (err) throw err;
-    })
-
-    // Create user table
-    const sql3 = "CREATE TABLE IF NOT EXISTS user (id int AUTO_INCREMENT PRIMARY KEY, email varchar(255), password varchar(255))";
-    db.query(sql3, (err, result) => {
-        if (err) throw err;
-    })
-
-    // Get all requests
-    const sql4 = "SELECT * FROM requests"
-    db.query(sql4, (err, result) => {
-        if (err) throw err;
-    })
-    // console.log(req.body)
-    res.sendFile(path.join(__dirname, '../frontend/admin.html'))
-})
-
-app.post("/login", async (req, res) => {
+app.post(endPointRoot + "/login", async (req, res) => {
     let email = req.body.email
     let password = req.body.password
     db.promise(`SELECT * FROM user WHERE email= '${email}'`)
@@ -113,41 +119,131 @@ app.post("/login", async (req, res) => {
             }
         }).catch((err) => {
             console.log(err);
+            res.status(401).send()
         })
-})
-
-app.get("/home", (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'))
 })
 
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'))
 })
 
-app.get('/pins', (req, res) => {
-    db.promise(`SELECT * FROM pin`)
-    .then((result) => {
-        console.log(JSON.stringify(result));
-        res.setHeader('Content-Type', 'application/json');
-       res.status(200).send(JSON.stringify(result));
-    }).catch((err) => {
-        console.log(err);
-    })
+app.get(endPointRoot + '/pins', (req, res) => {
+    db.promise("SELECT * FROM apikey WHERE apikey1='" + req.query.apikey + "'")
+        .then((result) => {
+            if (result.length > 0) {
+                db.promise(`SELECT * FROM pin`)
+                    .then((result) => {
+                        res.setHeader('Content-Type', 'application/json');
+                        res.status(200).send(JSON.stringify(result));
+                    }).catch((err) => {
+                        console.log(err)
+                        res.send(401).send()
+                    })
+            } else {
+                throw '401 Wrong api key!'
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.status(401).send()
+        })
 })
 
-app.get("/documentation.html", (req, res) => {
+app.get(endPointRoot + "/documentation", (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/documentation/index.html'))
 })
 
-app.post('/newEmoji', function (req, res) {
-    const lat = req.body.lat
-    const lon = req.body.lon
-    const contentType = req.body.contentType
-    const pinContent = req.body.pinContent
-    const sql = `INSERT INTO pin (type, content, lat, lon) VALUES (${contentType}, "${pinContent}", ${lat}, ${lon})`;
-    db.query(sql, (err, result) => {
-        if (err) throw err
-    })
+app.post(endPointRoot + '/newPin', function (req, res) {
+    db.promise("SELECT * FROM apikey WHERE apikey1='" + req.query.apikey + "'")
+        .then((result) => {
+            if (result.length > 0) {
+                const lat = req.body.lat
+                const lon = req.body.lon
+                const contentType = req.body.contentType
+                const pinContent = req.body.pinContent
+                const sql = `INSERT INTO pin (type, content, lat, lon) VALUES (${contentType}, "${pinContent}", ${lat}, ${lon})`;
+                db.query(sql, (err, result) => {
+                    if (err) throw err
+                    res.status(200).send()
+                })
+            } else {
+                throw '401 Wrong api key!'
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.status(401).send()
+        })
+})
+
+app.put(endPointRoot + '/editPin', function (req, res) {
+    db.promise("SELECT * FROM apikey WHERE apikey1='" + req.query.apikey + "'")
+        .then((result) => {
+            if (result.length > 0) {
+                const id = req.body.id;
+                const lat = req.body.lat
+                const lon = req.body.lon
+                const contentType = req.body.contentType
+                const pinContent = req.body.pinContent
+                const sql = `UPDATE pin SET type = ${contentType}, content = "${pinContent}", lat = ${lat}, lon = ${lon} WHERE id = ${id}`;
+                db.query(sql, (err, result) => {
+                    if (err) throw err
+                    res.status(200).send()
+                })
+                db.query("UPDATE requests SET puts = puts + 1", (err, result) => {
+                    if (err) throw err;
+                })
+            } else {
+                throw '401 Wrong api key!'
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.status(401).send()
+        })
+})
+
+app.delete(endPointRoot + '/deletePin', function (req, res) {
+    db.promise("SELECT * FROM apikey WHERE apikey1='" + req.query.apikey + "'")
+        .then((result) => {
+            if (result.length > 0) {
+                const id = req.body.id;
+                const sql = `DELETE FROM pin WHERE id = ${id}`;
+                db.query(sql, (err, result) => {
+                    if (err) throw err
+                    res.status(200).send()
+                })
+                db.query("UPDATE requests SET deletes = deletes + 1", (err, result) => {
+                    if (err) throw err;
+                })
+            } else {
+                throw '401 Wrong api key!'
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.status(401).send()
+        })
+});
+
+app.get(endPointRoot + '/pinIDs', function (req, res) {
+    db.promise(`SELECT id FROM pin`)
+        .then((result) => {
+            console.log(JSON.stringify(result));
+            res.setHeader('Content-Type', 'application/json');
+            res.status(200).send(JSON.stringify(result));
+        }).catch((err) => {
+            console.log(err);
+        })
+})
+
+app.post(endPointRoot + '/getPin', function (req, res) {
+    const id = req.body.id;
+    const sql = `SELECT * FROM pin WHERE id = ${id}`;
+    db.promise(sql)
+        .then((result) => {
+            console.log(JSON.stringify(result));
+            res.setHeader('Content-Type', 'application/json');
+            res.status(200).send(JSON.stringify(result));
+        }).catch((err) => {
+            console.log(err);
+        })
 })
 
 app.listen(PORT, () => {
