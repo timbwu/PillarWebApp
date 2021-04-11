@@ -1,12 +1,14 @@
 const express = require('express');
 const mysql = require('mysql');
 const path = require('path');
+const cors = require('cors')
 const bcrypt = require('bcrypt');
 const PORT = process.env.PORT || 3000;
 const endPointRoot = "/api/v1"
 
 const app = express();
 
+app.use(cors());
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*')
     res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE')
